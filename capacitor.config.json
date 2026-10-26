@@ -1,0 +1,10 @@
+{
+  "appId": "com.chandan.wizardchess",
+  "appName": "CHANDAN WIZARD CHESS",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": true,
+    "backgroundColor": "#080a0f"
+  }
+}
