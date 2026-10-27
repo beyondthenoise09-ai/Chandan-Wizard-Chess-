@@ -1430,6 +1430,9 @@ export function initWizardChess() {
     function nextFloorStoneLook() {
       return setFloorStoneLook(0);
     }
+    function prevFloorStoneLook() {
+      return setFloorStoneLook(0);
+    }
     function createProceduralCathedralFallback() {
       const fallbackRoot = new THREE.Group();
       fallbackRoot.name = 'Procedural_Cathedral_Sanctum';
