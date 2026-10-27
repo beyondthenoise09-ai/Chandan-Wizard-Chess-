@@ -171,6 +171,112 @@ html, body, #root {
   color: var(--gold-bright);
 }
 
+/* AI Difficulty Pill and Dropdown */
+.difficulty-pill {
+  background: var(--hud-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--hud-border);
+  padding: 4px 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+.difficulty-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gold-bright);
+}
+
+.difficulty-select {
+  background: rgba(18, 22, 34, 0.85);
+  color: var(--text);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.difficulty-select:hover,
+.difficulty-select:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+}
+
+.difficulty-select option {
+  background: #0f131d;
+  color: #f0ece1;
+}
+
+/* Sound Button Styling */
+.sound-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sound-btn.muted {
+  border-color: rgba(230, 57, 70, 0.5);
+  color: #ff8b94;
+}
+
+/* AI Thinking Indicator Banner */
+.ai-thinking-indicator {
+  position: fixed;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 35;
+  background: linear-gradient(180deg, rgba(20, 24, 38, 0.95) 0%, rgba(10, 13, 20, 0.97) 100%);
+  border: 1.5px solid var(--gold);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 20px rgba(212, 175, 55, 0.4);
+  padding: 8px 22px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--gold-bright);
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.ai-thinking-indicator.hidden {
+  opacity: 0;
+  transform: translate(-50%, -12px);
+  pointer-events: none;
+}
+
+.thinking-rune {
+  display: inline-block;
+  color: var(--gold);
+  animation: pulseRune 1.2s infinite ease-in-out;
+}
+
+@keyframes pulseRune {
+  0%, 100% {
+    transform: scale(0.9) rotate(0deg);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.3) rotate(45deg);
+    opacity: 1;
+    filter: drop-shadow(0 0 6px var(--gold-bright));
+  }
+}
+
 /* Bottom HUD */
 #hud-bottom {
   position: fixed;
@@ -697,6 +803,20 @@ body.cinematic-ui-hidden #hud-bottom {
     font-size: 0.8rem;
     width: 100%;
     white-space: nowrap;
+  }
+
+  #difficulty-pill {
+    grid-column: span 3;
+    width: 100%;
+    min-height: 44px;
+    border-radius: 12px;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  #btn-sound-toggle {
+    grid-column: span 3;
+    width: 100%;
   }
 
   /* 3 Game Action buttons in a 3-column row */

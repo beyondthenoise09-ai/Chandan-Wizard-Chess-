@@ -54,6 +54,11 @@ export default function App() {
       </div>
 
       <div id="canvas-container"></div>
+      
+      <div id="ai-thinking-indicator" className="ai-thinking-indicator hidden" aria-live="polite">
+        <span className="thinking-rune">✦</span>
+        <span id="ai-thinking-text">Grandmaster is calculating...</span>
+      </div>
 
       <button
         type="button"
@@ -133,6 +138,31 @@ export default function App() {
               Close ✕
             </button>
           </div>
+
+          <div className="difficulty-pill" id="difficulty-pill" title="Select AI Difficulty">
+            <label htmlFor="select-ai-difficulty" className="difficulty-label">AI:</label>
+            <select
+              id="select-ai-difficulty"
+              className="difficulty-select"
+              defaultValue="medium"
+              aria-label="Select AI Difficulty"
+            >
+              <option value="easy">♟️ Easy</option>
+              <option value="medium">⚔️ Medium</option>
+              <option value="hard">🛡️ Hard</option>
+              <option value="master">👑 Master</option>
+              <option value="grandmaster">⚡ Grandmaster</option>
+            </select>
+          </div>
+
+          <button
+            type="button"
+            className="hud-btn sound-btn"
+            id="btn-sound-toggle"
+            title="Toggle Procedural Audio (Mute / Unmute)"
+          >
+            🔊 Sound ON
+          </button>
 
           <div className="mobile-sheet-section-label">Game Actions</div>
 

@@ -9,6 +9,285 @@ const SkeletonUtils = { clone: cloneSkeleton };
 
 export function initWizardChess() {
     // =========================================================================
+    // Requirement 2: Self-Contained Web Audio API Synthesizer (WizardSoundEngine)
+    // =========================================================================
+    class WizardSoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.isMuted = false;
+        this.masterGain = null;
+        this.initialized = false;
+        try {
+          this.isMuted = localStorage.getItem('wizard_chess_muted') === 'true';
+        } catch (e) {}
+        this.setupAutoplayUnlock();
+      }
+
+      init() {
+        if (this.initialized && this.ctx) return;
+        try {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) return;
+          this.ctx = new AudioContextClass();
+          this.masterGain = this.ctx.createGain();
+          this.masterGain.gain.setValueAtTime(this.isMuted ? 0.0001 : 0.68, this.ctx.currentTime);
+          this.masterGain.connect(this.ctx.destination);
+          this.initialized = true;
+        } catch (e) {
+          console.warn('Web Audio init skipped:', e);
+        }
+      }
+
+      setupAutoplayUnlock() {
+        const unlock = () => {
+          this.init();
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => {});
+          }
+        };
+        window.addEventListener('pointerdown', unlock, { passive: true });
+        window.addEventListener('touchstart', unlock, { passive: true });
+        window.addEventListener('keydown', unlock, { passive: true });
+      }
+
+      toggleMute() {
+        this.init();
+        this.isMuted = !this.isMuted;
+        try {
+          localStorage.setItem('wizard_chess_muted', String(this.isMuted));
+        } catch (e) {}
+        if (this.masterGain && this.ctx) {
+          this.masterGain.gain.cancelScheduledValues(this.ctx.currentTime);
+          this.masterGain.gain.setValueAtTime(this.isMuted ? 0.0001 : 0.68, this.ctx.currentTime);
+        }
+        return this.isMuted;
+      }
+
+      getMuted() {
+        return this.isMuted;
+      }
+
+      // 1. Piece Select: High-frequency mystical ping / resonant chime
+      playSelect() {
+        if (this.isMuted) return;
+        this.init();
+        if (!this.ctx || this.ctx.state !== 'running') return;
+        const now = this.ctx.currentTime;
+        try {
+          const osc1 = this.ctx.createOscillator();
+          const osc2 = this.ctx.createOscillator();
+          const gainNode = this.ctx.createGain();
+          const filter = this.ctx.createBiquadFilter();
+
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(1174.66, now);
+          osc1.frequency.exponentialRampToValueAtTime(1240, now + 0.35);
+
+          osc2.type = 'triangle';
+          osc2.frequency.setValueAtTime(1760, now);
+          osc2.frequency.exponentialRampToValueAtTime(1820, now + 0.28);
+
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(1600, now);
+          filter.Q.setValueAtTime(4.2, now);
+
+          gainNode.gain.setValueAtTime(0.001, now);
+          gainNode.gain.linearRampToValueAtTime(0.32, now + 0.015);
+          gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+
+          osc1.connect(filter);
+          osc2.connect(filter);
+          filter.connect(gainNode);
+          gainNode.connect(this.masterGain);
+
+          osc1.start(now);
+          osc2.start(now);
+          osc1.stop(now + 0.45);
+          osc2.stop(now + 0.45);
+        } catch (e) {}
+      }
+
+      // 2. Valid Move: Heavy, tactile wooden/stone placement thud
+      playMove() {
+        if (this.isMuted) return;
+        this.init();
+        if (!this.ctx || this.ctx.state !== 'running') return;
+        const now = this.ctx.currentTime;
+        try {
+          const osc = this.ctx.createOscillator();
+          const subOsc = this.ctx.createOscillator();
+          const gainNode = this.ctx.createGain();
+          const filter = this.ctx.createBiquadFilter();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(145, now);
+          osc.frequency.exponentialRampToValueAtTime(36, now + 0.16);
+
+          subOsc.type = 'triangle';
+          subOsc.frequency.setValueAtTime(95, now);
+          subOsc.frequency.exponentialRampToValueAtTime(26, now + 0.14);
+
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(260, now);
+
+          gainNode.gain.setValueAtTime(0.001, now);
+          gainNode.gain.linearRampToValueAtTime(0.48, now + 0.012);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.20);
+
+          osc.connect(filter);
+          subOsc.connect(filter);
+          filter.connect(gainNode);
+          gainNode.connect(this.masterGain);
+
+          osc.start(now);
+          subOsc.start(now);
+          osc.stop(now + 0.22);
+          subOsc.stop(now + 0.22);
+        } catch (e) {}
+      }
+
+      // 3. Capture / Attack: Wizard blast impact (filtered noise burst + pitched bass drop)
+      playCapture() {
+        if (this.isMuted) return;
+        this.init();
+        if (!this.ctx || this.ctx.state !== 'running') return;
+        const now = this.ctx.currentTime;
+        try {
+          const bufferSize = Math.floor(this.ctx.sampleRate * 0.32);
+          const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * 0.9;
+          }
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          const noiseFilter = this.ctx.createBiquadFilter();
+          noiseFilter.type = 'bandpass';
+          noiseFilter.frequency.setValueAtTime(1400, now);
+          noiseFilter.frequency.exponentialRampToValueAtTime(220, now + 0.3);
+          noiseFilter.Q.setValueAtTime(2.6, now);
+
+          const noiseGain = this.ctx.createGain();
+          noiseGain.gain.setValueAtTime(0.01, now);
+          noiseGain.gain.linearRampToValueAtTime(0.55, now + 0.015);
+          noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+
+          noise.connect(noiseFilter);
+          noiseFilter.connect(noiseGain);
+          noiseGain.connect(this.masterGain);
+
+          // Sub-bass heavy impact drop
+          const bassOsc = this.ctx.createOscillator();
+          const bassGain = this.ctx.createGain();
+          bassOsc.type = 'sine';
+          bassOsc.frequency.setValueAtTime(220, now);
+          bassOsc.frequency.exponentialRampToValueAtTime(30, now + 0.36);
+
+          bassGain.gain.setValueAtTime(0.01, now);
+          bassGain.gain.linearRampToValueAtTime(0.62, now + 0.02);
+          bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+
+          bassOsc.connect(bassGain);
+          bassGain.connect(this.masterGain);
+
+          noise.start(now);
+          bassOsc.start(now);
+          noise.stop(now + 0.34);
+          bassOsc.stop(now + 0.40);
+        } catch (e) {}
+      }
+
+      // 4. Check: Dramatic pulsing warning bell
+      playCheck() {
+        if (this.isMuted) return;
+        this.init();
+        if (!this.ctx || this.ctx.state !== 'running') return;
+        const now = this.ctx.currentTime;
+        try {
+          [220, 261.63, 329.63].forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now);
+
+            gain.gain.setValueAtTime(0.001, now);
+            gain.gain.linearRampToValueAtTime(0.24 / (idx + 1), now + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.78);
+
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+
+            osc.start(now);
+            osc.stop(now + 0.82);
+          });
+        } catch (e) {}
+      }
+
+      // 5. Checkmate / Victory: Grand fantasy victory chord arpeggio
+      playVictory() {
+        if (this.isMuted) return;
+        this.init();
+        if (!this.ctx || this.ctx.state !== 'running') return;
+        const now = this.ctx.currentTime;
+        try {
+          const notes = [293.66, 369.99, 440.0, 587.33, 739.99, 880.0];
+          notes.forEach((freq, i) => {
+            const noteTime = now + i * 0.12;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, noteTime);
+
+            gain.gain.setValueAtTime(0.001, noteTime);
+            gain.gain.linearRampToValueAtTime(0.28, noteTime + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, noteTime + 1.25);
+
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+
+            osc.start(noteTime);
+            osc.stop(noteTime + 1.3);
+          });
+        } catch (e) {}
+      }
+
+      // 6. Invalid Move: Low muffled error buzz
+      playInvalid() {
+        if (this.isMuted) return;
+        this.init();
+        if (!this.ctx || this.ctx.state !== 'running') return;
+        const now = this.ctx.currentTime;
+        try {
+          const osc = this.ctx.createOscillator();
+          const filter = this.ctx.createBiquadFilter();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(94, now);
+          osc.frequency.linearRampToValueAtTime(68, now + 0.18);
+
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(170, now);
+
+          gain.gain.setValueAtTime(0.01, now);
+          gain.gain.linearRampToValueAtTime(0.24, now + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.20);
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.masterGain);
+
+          osc.start(now);
+          osc.stop(now + 0.22);
+        } catch (e) {}
+      }
+    }
+
+    const soundEngine = new WizardSoundEngine();
+
+    // =========================================================================
     // Constants & Board Coordinates
     // =========================================================================
     const PIECE_TYPES = ['pawn', 'rook', 'knight', 'bishop', 'queen', 'king'];
@@ -1151,8 +1430,187 @@ export function initWizardChess() {
     function nextFloorStoneLook() {
       return setFloorStoneLook(0);
     }
-    function prevFloorStoneLook() {
-      return setFloorStoneLook(0);
+    function createProceduralCathedralFallback() {
+      const fallbackRoot = new THREE.Group();
+      fallbackRoot.name = 'Procedural_Cathedral_Sanctum';
+
+      // 1. Altar Stone Block underneath the chessboard (centered at 0, 0.36, 0)
+      const altarGeo = new THREE.BoxGeometry(3.1, 0.72, 3.1);
+      const altarMat = new THREE.MeshStandardMaterial({
+        color: 0x161922,
+        roughness: 0.42,
+        metalness: 0.15
+      });
+      const altarMesh = new THREE.Mesh(altarGeo, altarMat);
+      altarMesh.position.set(0, 0.36, 0);
+      altarMesh.castShadow = true;
+      altarMesh.receiveShadow = true;
+      fallbackRoot.add(altarMesh);
+
+      // 2. Altar Gold Trims
+      const trimGeo = new THREE.BoxGeometry(3.18, 0.04, 3.18);
+      const trimMesh = new THREE.Mesh(trimGeo, goldTrimMat);
+      trimMesh.position.set(0, 0.72, 0);
+      fallbackRoot.add(trimMesh);
+
+      // 3. Cathedral Grand Floor Flagstones (at y = 0)
+      const floorGeo = new THREE.PlaneGeometry(36, 36);
+      floorGeo.rotateX(-Math.PI / 2);
+      const floorMat = new THREE.MeshStandardMaterial({
+        color: 0x141822,
+        roughness: 0.70,
+        metalness: 0.08
+      });
+      const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+      floorMesh.position.set(0, 0, 0);
+      floorMesh.receiveShadow = true;
+      fallbackRoot.add(floorMesh);
+
+      // 4. Gothic Corner Columns with Warm Braziers
+      const colGeo = new THREE.CylinderGeometry(0.38, 0.48, 8, 16);
+      const colMat = new THREE.MeshStandardMaterial({
+        color: 0x222736,
+        roughness: 0.75,
+        metalness: 0.05
+      });
+      const positions = [
+        [-5.5, 4, -5.5],
+        [5.5, 4, -5.5],
+        [-5.5, 4, 5.5],
+        [5.5, 4, 5.5]
+      ];
+      for (const [cx, cy, cz] of positions) {
+        const col = new THREE.Mesh(colGeo, colMat);
+        col.position.set(cx, cy, cz);
+        col.receiveShadow = true;
+        fallbackRoot.add(col);
+      }
+
+      // Add Warm Altar Cauldron PointLights
+      const lightL = new THREE.PointLight(0xff9438, 2.8, 12);
+      lightL.position.set(-2.6, 1.2, 0);
+      fallbackRoot.add(lightL);
+
+      const lightR = new THREE.PointLight(0xff9438, 2.8, 12);
+      lightR.position.set(2.6, 1.2, 0);
+      fallbackRoot.add(lightR);
+
+      scene.add(fallbackRoot);
+    }
+
+    function createProceduralPieceFallback(type) {
+      const group = new THREE.Group();
+      group.name = `Procedural_${type}`;
+
+      // Shared stone pediment base
+      const baseGeo = new THREE.CylinderGeometry(0.38, 0.44, 0.18, 24);
+      baseGeo.translate(0, 0.09, 0);
+      const baseMesh = new THREE.Mesh(baseGeo, whitePieceMat);
+      baseMesh.castShadow = true;
+      baseMesh.receiveShadow = true;
+      group.add(baseMesh);
+
+      // Torus decorative ring
+      const ringGeo = new THREE.TorusGeometry(0.34, 0.05, 12, 24);
+      ringGeo.rotateX(Math.PI / 2);
+      ringGeo.translate(0, 0.2, 0);
+      const ringMesh = new THREE.Mesh(ringGeo, whitePieceMat);
+      ringMesh.castShadow = true;
+      group.add(ringMesh);
+
+      // Body shaft
+      const shaftGeo = new THREE.CylinderGeometry(0.24, 0.32, 0.55, 20);
+      shaftGeo.translate(0, 0.48, 0);
+      const shaftMesh = new THREE.Mesh(shaftGeo, whitePieceMat);
+      shaftMesh.castShadow = true;
+      shaftMesh.receiveShadow = true;
+      group.add(shaftMesh);
+
+      // Distinct head / crown geometry per piece
+      let headMesh;
+      if (type === 'pawn') {
+        const pawnHeadGeo = new THREE.SphereGeometry(0.22, 20, 16);
+        pawnHeadGeo.translate(0, 0.88, 0);
+        headMesh = new THREE.Mesh(pawnHeadGeo, whitePieceMat);
+      } else if (type === 'rook') {
+        const rookTowerGeo = new THREE.CylinderGeometry(0.32, 0.26, 0.45, 18);
+        rookTowerGeo.translate(0, 0.85, 0);
+        headMesh = new THREE.Mesh(rookTowerGeo, whitePieceMat);
+        for (let i = 0; i < 4; i++) {
+          const battlementGeo = new THREE.BoxGeometry(0.12, 0.14, 0.12);
+          const angle = (i * Math.PI) / 2;
+          battlementGeo.translate(Math.cos(angle) * 0.22, 1.12, Math.sin(angle) * 0.22);
+          const bMesh = new THREE.Mesh(battlementGeo, whitePieceMat);
+          bMesh.castShadow = true;
+          group.add(bMesh);
+        }
+      } else if (type === 'knight') {
+        const neckGeo = new THREE.CylinderGeometry(0.22, 0.26, 0.45, 16);
+        neckGeo.rotateZ(0.28);
+        neckGeo.translate(-0.06, 0.88, 0);
+        headMesh = new THREE.Mesh(neckGeo, whitePieceMat);
+
+        const snoutGeo = new THREE.BoxGeometry(0.26, 0.18, 0.2);
+        snoutGeo.rotateZ(-0.25);
+        snoutGeo.translate(0.12, 1.02, 0);
+        const snoutMesh = new THREE.Mesh(snoutGeo, whitePieceMat);
+        snoutMesh.castShadow = true;
+        group.add(snoutMesh);
+
+        const earGeo = new THREE.ConeGeometry(0.06, 0.14, 8);
+        earGeo.translate(-0.08, 1.2, 0.08);
+        const earMesh = new THREE.Mesh(earGeo, whitePieceMat);
+        earMesh.castShadow = true;
+        group.add(earMesh);
+      } else if (type === 'bishop') {
+        const miterGeo = new THREE.SphereGeometry(0.24, 18, 16);
+        miterGeo.scale(1, 1.45, 1);
+        miterGeo.translate(0, 0.95, 0);
+        headMesh = new THREE.Mesh(miterGeo, whitePieceMat);
+
+        const finialGeo = new THREE.SphereGeometry(0.07, 12, 12);
+        finialGeo.translate(0, 1.35, 0);
+        const finialMesh = new THREE.Mesh(finialGeo, whitePieceMat);
+        finialMesh.castShadow = true;
+        group.add(finialMesh);
+      } else if (type === 'queen') {
+        const coronetGeo = new THREE.CylinderGeometry(0.35, 0.22, 0.5, 16);
+        coronetGeo.translate(0, 0.95, 0);
+        headMesh = new THREE.Mesh(coronetGeo, whitePieceMat);
+
+        const coronetBallGeo = new THREE.SphereGeometry(0.09, 14, 14);
+        coronetBallGeo.translate(0, 1.28, 0);
+        const ballMesh = new THREE.Mesh(coronetBallGeo, whitePieceMat);
+        ballMesh.castShadow = true;
+        group.add(ballMesh);
+      } else if (type === 'king') {
+        const crownGeo = new THREE.CylinderGeometry(0.36, 0.24, 0.55, 18);
+        crownGeo.translate(0, 1.0, 0);
+        headMesh = new THREE.Mesh(crownGeo, whitePieceMat);
+
+        const crossV = new THREE.BoxGeometry(0.06, 0.22, 0.06);
+        crossV.translate(0, 1.38, 0);
+        const vMesh = new THREE.Mesh(crossV, whitePieceMat);
+        vMesh.castShadow = true;
+        group.add(vMesh);
+
+        const crossH = new THREE.BoxGeometry(0.18, 0.06, 0.06);
+        crossH.translate(0, 1.42, 0);
+        const hMesh = new THREE.Mesh(crossH, whitePieceMat);
+        hMesh.castShadow = true;
+        group.add(hMesh);
+      }
+
+      if (headMesh) {
+        headMesh.castShadow = true;
+        headMesh.receiveShadow = true;
+        group.add(headMesh);
+      }
+
+      return {
+        scene: group,
+        animations: []
+      };
     }
 
     async function loadAllAssets() {
@@ -1160,29 +1618,70 @@ export function initWizardChess() {
       const loaderText = document.getElementById('loader-text');
       const totalItems = PIECE_TYPES.length + 1;
 
-      async function loadGltfModel(baseName) {
-        let arrayBuffer = null;
+      function getCandidateAssetUrls(subPath) {
+        const clean = subPath.replace(/^(\.\/|\/)/, '');
+        const candidates = [];
         try {
-          const resB64 = await fetch(`./assets/glb/${baseName}.glb.gz.b64`);
-          if (resB64.ok) {
-            const b64Text = (await resB64.text()).trim();
-            if (b64Text.length > 64) {
-              const binStr = atob(b64Text);
-              const gzBytes = new Uint8Array(binStr.length);
-              for (let i = 0; i < binStr.length; i++) {
-                gzBytes[i] = binStr.charCodeAt(i);
-              }
-              const ds = new DecompressionStream('gzip');
-              const stream = new Blob([gzBytes]).stream().pipeThrough(ds);
-              arrayBuffer = await new Response(stream).arrayBuffer();
-            }
+          const docUrl = new URL(clean, window.location.href).href;
+          candidates.push(docUrl);
+        } catch (e) {}
+        candidates.push('./' + clean);
+        try {
+          if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) {
+            const b = import.meta.env.BASE_URL;
+            const normB = b.endsWith('/') ? b : b + '/';
+            candidates.push(normB + clean);
           }
         } catch (e) {}
+        candidates.push('/' + clean);
+        return Array.from(new Set(candidates));
+      }
+
+      async function loadGltfModel(baseName) {
+        let arrayBuffer = null;
+
+        // 1. Try compressed gzip base64 across candidate URLs
+        const b64Candidates = getCandidateAssetUrls(`assets/glb/${baseName}.glb.gz.b64`);
+        for (const url of b64Candidates) {
+          try {
+            const resB64 = await fetch(url);
+            if (resB64.ok) {
+              const b64Text = (await resB64.text()).trim();
+              if (b64Text.length > 64) {
+                const binStr = atob(b64Text);
+                const gzBytes = new Uint8Array(binStr.length);
+                for (let i = 0; i < binStr.length; i++) {
+                  gzBytes[i] = binStr.charCodeAt(i);
+                }
+                if (typeof DecompressionStream !== 'undefined') {
+                  const ds = new DecompressionStream('gzip');
+                  const stream = new Blob([gzBytes]).stream().pipeThrough(ds);
+                  arrayBuffer = await new Response(stream).arrayBuffer();
+                } else {
+                  arrayBuffer = gzBytes.buffer;
+                }
+                if (arrayBuffer && arrayBuffer.byteLength > 100) break;
+              }
+            }
+          } catch (e) {}
+        }
+
+        // 2. Try raw .glb binary across candidate URLs
+        if (!arrayBuffer) {
+          const glbCandidates = getCandidateAssetUrls(`assets/glb/${baseName}.glb`);
+          for (const url of glbCandidates) {
+            try {
+              const resGlb = await fetch(url);
+              if (resGlb.ok) {
+                arrayBuffer = await resGlb.arrayBuffer();
+                if (arrayBuffer && arrayBuffer.byteLength > 100) break;
+              }
+            } catch (e) {}
+          }
+        }
 
         if (!arrayBuffer) {
-          const resGlb = await fetch(`./assets/glb/${baseName}.glb`);
-          if (!resGlb.ok) throw new Error(`Failed to fetch ${baseName}`);
-          arrayBuffer = await resGlb.arrayBuffer();
+          throw new Error(`Failed to locate asset ${baseName} across all candidate URLs`);
         }
 
         return new Promise((resolve, reject) => {
@@ -1383,7 +1882,8 @@ export function initWizardChess() {
             resolve();
           },
           (err) => {
-            console.warn('Cathedral GLB load warning:', err);
+            console.warn('Cathedral GLB load warning, activating procedural sanctuary:', err);
+            createProceduralCathedralFallback();
             bumpProgress('Cathedral Loaded');
             resolve();
           }
@@ -1417,7 +1917,10 @@ export function initWizardChess() {
               resolve();
             },
             (err) => {
-              console.warn(`Piece load warning (${type}):`, err);
+              console.warn(`Piece load warning (${type}), activating procedural fallback:`, err);
+              const proceduralTpl = createProceduralPieceFallback(type);
+              pieceTemplates[`${type}_w`] = proceduralTpl;
+              pieceTemplates[`${type}_b`] = proceduralTpl;
               bumpProgress(`Loaded ${type}`);
               resolve();
             }
@@ -2512,6 +3015,10 @@ export function initWizardChess() {
           playPieceClip(piece, 'Idle', true, 0.18);
         }
 
+        if (!isCapture) {
+          soundEngine.playMove();
+        }
+
         if (isCapture) {
           if (piece.color === 'w') capturedByWhite += 1;
           else capturedByBlack += 1;
@@ -2525,6 +3032,11 @@ export function initWizardChess() {
         currentTurn = currentTurn === 'w' ? 'b' : 'w';
         isAnimatingMove = false;
         updateTurnUI();
+
+        if (isKingInCheck(currentTurn, boardState)) {
+          soundEngine.playCheck();
+        }
+
         maybeScheduleAIMove();
       }
 
@@ -2664,6 +3176,7 @@ export function initWizardChess() {
             // Blow Burst: after visible weapon impact & follow-through, defender explodes into stone shards!
             if (!shatterTriggered && (atkClipTime >= BLOW_CLIP_TIME || elapsed >= tImpact + 0.06)) {
               shatterTriggered = true;
+              soundEngine.playCapture();
               impactActualTime = elapsed;
               postShatterPiecePos.copy(piece.mesh.position);
               if (captured && captured.mesh) {
@@ -2747,74 +3260,380 @@ export function initWizardChess() {
     const activeMoveTweens = [];
 
     // =========================================================================
-    // Single-Player Tactical AI (Auto-Plays Opponent Turn + Manual AI Button)
+    // Requirement 3: SMART AI DIFFICULTY SYSTEM (EASY TO GRANDMASTER)
     // =========================================================================
+    let aiDifficulty = 'medium';
+    try {
+      aiDifficulty = localStorage.getItem('wizard_chess_ai_difficulty') || 'medium';
+    } catch (e) {}
+
+    // Positional Piece-Square Tables (White perspective: rank 0 is Black back rank, rank 7 is White back rank)
+    const PAWN_PST = [
+      [ 0,  0,  0,  0,  0,  0,  0,  0],
+      [50, 50, 50, 50, 50, 50, 50, 50],
+      [10, 10, 20, 30, 30, 20, 10, 10],
+      [ 5,  5, 10, 25, 25, 10,  5,  5],
+      [ 0,  0,  0, 20, 20,  0,  0,  0],
+      [ 5, -5,-10,  0,  0,-10, -5,  5],
+      [ 5, 10, 10,-20,-20, 10, 10,  5],
+      [ 0,  0,  0,  0,  0,  0,  0,  0]
+    ];
+
+    const KNIGHT_PST = [
+      [-50,-40,-30,-30,-30,-30,-40,-50],
+      [-40,-20,  0,  0,  0,  0,-20,-40],
+      [-30,  0, 10, 15, 15, 10,  0,-30],
+      [-30,  5, 15, 20, 20, 15,  5,-30],
+      [-30,  0, 15, 20, 20, 15,  0,-30],
+      [-30,  5, 10, 15, 15, 10,  5,-30],
+      [-40,-20,  0,  5,  5,  0,-20,-40],
+      [-50,-40,-30,-30,-30,-30,-40,-50]
+    ];
+
+    const BISHOP_PST = [
+      [-20,-10,-10,-10,-10,-10,-10,-20],
+      [-10,  0,  0,  0,  0,  0,  0,-10],
+      [-10,  0,  5, 10, 10,  5,  0,-10],
+      [-10,  5,  5, 10, 10,  5,  5,-10],
+      [-10,  0, 10, 10, 10, 10,  0,-10],
+      [-10, 10, 10, 10, 10, 10, 10,-10],
+      [-10,  5,  0,  0,  0,  0,  5,-10],
+      [-20,-10,-10,-10,-10,-10,-10,-20]
+    ];
+
+    const ROOK_PST = [
+      [ 0,  0,  0,  0,  0,  0,  0,  0],
+      [ 5, 10, 10, 10, 10, 10, 10,  5],
+      [-5,  0,  0,  0,  0,  0,  0, -5],
+      [-5,  0,  0,  0,  0,  0,  0, -5],
+      [-5,  0,  0,  0,  0,  0,  0, -5],
+      [-5,  0,  0,  0,  0,  0,  0, -5],
+      [-5,  0,  0,  0,  0,  0,  0, -5],
+      [ 0,  0,  0,  5,  5,  0,  0,  0]
+    ];
+
+    const QUEEN_PST = [
+      [-20,-10,-10, -5, -5,-10,-10,-20],
+      [-10,  0,  0,  0,  0,  0,  0,-10],
+      [-10,  0,  5,  5,  5,  5,  0,-10],
+      [ -5,  0,  5,  5,  5,  5,  0, -5],
+      [  0,  0,  5,  5,  5,  5,  0, -5],
+      [-10,  5,  5,  5,  5,  5,  0,-10],
+      [-10,  0,  5,  0,  0,  0,  0,-10],
+      [-20,-10,-10, -5, -5,-10,-10,-20]
+    ];
+
+    const KING_MID_PST = [
+      [-30,-40,-40,-50,-50,-40,-40,-30],
+      [-30,-40,-40,-50,-50,-40,-40,-30],
+      [-30,-40,-40,-50,-50,-40,-40,-30],
+      [-30,-40,-40,-50,-50,-40,-40,-30],
+      [-20,-30,-30,-40,-40,-30,-30,-20],
+      [-10,-20,-20,-20,-20,-20,-20,-10],
+      [ 20, 20,  0,  0,  0,  0, 20, 20],
+      [ 20, 30, 10,  0,  0, 10, 30, 20]
+    ];
+
+    const KING_END_PST = [
+      [-50,-40,-30,-20,-20,-30,-40,-50],
+      [-30,-20,-10,  0,  0,-10,-20,-30],
+      [-30,-10, 20, 30, 30, 20,-10,-30],
+      [-30,-10, 30, 40, 40, 30,-10,-30],
+      [-30,-10, 30, 40, 40, 30,-10,-30],
+      [-30,-10, 20, 30, 30, 20,-10,-30],
+      [-30,-30,  0,  0,  0,  0,-30,-30],
+      [-50,-30,-30,-30,-30,-30,-30,-50]
+    ];
+
+    function evaluateStaticBoard(board, perspectiveColor, usePST = true, deepTactics = false) {
+      let whiteScore = 0;
+      let blackScore = 0;
+      let totalMajorPieces = 0;
+
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const piece = board[r][c];
+          if (!piece) continue;
+          const val = PIECE_VALUES[piece.type] || 0;
+          if (piece.type !== 'pawn' && piece.type !== 'king') {
+            totalMajorPieces++;
+          }
+
+          let pstVal = 0;
+          if (usePST) {
+            const tableR = piece.color === 'w' ? r : (7 - r);
+            if (piece.type === 'pawn') pstVal = PAWN_PST[tableR][c];
+            else if (piece.type === 'knight') pstVal = KNIGHT_PST[tableR][c];
+            else if (piece.type === 'bishop') pstVal = BISHOP_PST[tableR][c];
+            else if (piece.type === 'rook') pstVal = ROOK_PST[tableR][c];
+            else if (piece.type === 'queen') pstVal = QUEEN_PST[tableR][c];
+            else if (piece.type === 'king') {
+              pstVal = (totalMajorPieces <= 3 ? KING_END_PST : KING_MID_PST)[tableR][c];
+            }
+          }
+
+          if (piece.color === 'w') {
+            whiteScore += val + pstVal;
+          } else {
+            blackScore += val + pstVal;
+          }
+        }
+      }
+
+      if (deepTactics) {
+        const oppColor = perspectiveColor === 'w' ? 'b' : 'w';
+        if (isKingInCheck(oppColor, board)) {
+          if (perspectiveColor === 'w') whiteScore += 60;
+          else blackScore += 60;
+        }
+      }
+
+      return perspectiveColor === 'w' ? (whiteScore - blackScore) : (blackScore - whiteScore);
+    }
+
+    function minimaxAlphaBeta(board, depth, alpha, beta, isMaximizing, searchColor, level) {
+      const currentColor = isMaximizing ? searchColor : (searchColor === 'w' ? 'b' : 'w');
+      const moves = getAllLegalMoves(currentColor, board);
+
+      if (depth === 0 || moves.length === 0) {
+        if (moves.length === 0) {
+          if (isKingInCheck(currentColor, board)) {
+            return isMaximizing ? -25000 : 25000;
+          }
+          return 0;
+        }
+        const usePST = level !== 'medium';
+        const deepTactics = level === 'master' || level === 'grandmaster';
+        return evaluateStaticBoard(board, searchColor, usePST, deepTactics);
+      }
+
+      moves.sort((a, b) => {
+        const targetA = board[a.toR][a.toC];
+        const targetB = board[b.toR][b.toC];
+        const valA = targetA ? PIECE_VALUES[targetA.type] : 0;
+        const valB = targetB ? PIECE_VALUES[targetB.type] : 0;
+        return valB - valA;
+      });
+
+      if (isMaximizing) {
+        let maxEval = -Infinity;
+        for (const m of moves) {
+          const piece = board[m.fromR][m.fromC];
+          const target = board[m.toR][m.toC];
+          board[m.toR][m.toC] = piece;
+          board[m.fromR][m.fromC] = null;
+
+          const ev = minimaxAlphaBeta(board, depth - 1, alpha, beta, false, searchColor, level);
+
+          board[m.fromR][m.fromC] = piece;
+          board[m.toR][m.toC] = target;
+
+          maxEval = Math.max(maxEval, ev);
+          alpha = Math.max(alpha, ev);
+          if (beta <= alpha) break;
+        }
+        return maxEval;
+      } else {
+        let minEval = Infinity;
+        for (const m of moves) {
+          const piece = board[m.fromR][m.fromC];
+          const target = board[m.toR][m.toC];
+          board[m.toR][m.toC] = piece;
+          board[m.fromR][m.fromC] = null;
+
+          const ev = minimaxAlphaBeta(board, depth - 1, alpha, beta, true, searchColor, level);
+
+          board[m.fromR][m.fromC] = piece;
+          board[m.toR][m.toC] = target;
+
+          minEval = Math.min(minEval, ev);
+          beta = Math.min(beta, ev);
+          if (beta <= alpha) break;
+        }
+        return minEval;
+      }
+    }
+
     function chooseSmartAIMove(color) {
-      const legalMoves = getAllLegalMoves(color);
+      const legalMoves = getAllLegalMoves(color, boardState);
       if (legalMoves.length === 0) return null;
 
-      let bestScore = -Infinity;
-      let bestCandidates = [];
-
-      for (const m of legalMoves) {
-        const piece = boardState[m.fromR][m.fromC];
-        const target = boardState[m.toR][m.toC];
-        let score = 0;
-
-        // Material gain on capture
-        if (target) {
-          score += PIECE_VALUES[target.type] * 1.15 - PIECE_VALUES[piece.type] * 0.08;
+      // 1. Easy (Beginner): Fast heuristic moves with a 40% random move chance
+      if (aiDifficulty === 'easy') {
+        if (Math.random() < 0.40) {
+          return legalMoves[Math.floor(Math.random() * legalMoves.length)];
         }
-
-        // Center control bonus
-        const centerDist = Math.abs(3.5 - m.toR) + Math.abs(3.5 - m.toC);
-        score += (7 - centerDist) * 8;
-
-        // Pawn advancement bonus
-        if (piece.type === 'pawn') {
-          const advance = color === 'w' ? (6 - m.toR) : (m.toR - 1);
-          score += advance * 12;
+        let bestScore = -Infinity;
+        let candidates = [];
+        for (const m of legalMoves) {
+          const target = boardState[m.toR][m.toC];
+          let score = target ? PIECE_VALUES[target.type] : 0;
+          score += (3.5 - Math.abs(3.5 - m.toC)) * 2;
+          if (score > bestScore) {
+            bestScore = score;
+            candidates = [m];
+          } else if (score === bestScore) {
+            candidates.push(m);
+          }
         }
+        return candidates[Math.floor(Math.random() * candidates.length)] || legalMoves[0];
+      }
 
-        // Simulate move to check if destination is hanging or gives check
-        boardState[m.toR][m.toC] = piece;
-        boardState[m.fromR][m.fromC] = null;
+      // 2. Medium (Intermediate): Minimax algorithm (Depth 2) with basic piece values
+      if (aiDifficulty === 'medium') {
+        let bestVal = -Infinity;
+        let bestMove = legalMoves[0];
+        for (const m of legalMoves) {
+          const piece = boardState[m.fromR][m.fromC];
+          const target = boardState[m.toR][m.toC];
+          boardState[m.toR][m.toC] = piece;
+          boardState[m.fromR][m.fromC] = null;
+
+          const moveVal = minimaxAlphaBeta(boardState, 1, -Infinity, Infinity, false, color, 'medium');
+
+          boardState[m.fromR][m.fromC] = piece;
+          boardState[m.toR][m.toC] = target;
+
+          if (moveVal > bestVal) {
+            bestVal = moveVal;
+            bestMove = m;
+          }
+        }
+        return bestMove;
+      }
+
+      // 3. Hard (Advanced): Minimax with Alpha-Beta pruning (Depth 3) + Positional PSTs
+      if (aiDifficulty === 'hard') {
+        let bestVal = -Infinity;
+        let bestMove = legalMoves[0];
+        let alpha = -Infinity;
+        const beta = Infinity;
+
+        legalMoves.sort((a, b) => (boardState[b.toR][b.toC] ? 1 : 0) - (boardState[a.toR][a.toC] ? 1 : 0));
+
+        for (const m of legalMoves) {
+          const piece = boardState[m.fromR][m.fromC];
+          const target = boardState[m.toR][m.toC];
+          boardState[m.toR][m.toC] = piece;
+          boardState[m.fromR][m.fromC] = null;
+
+          const moveVal = minimaxAlphaBeta(boardState, 2, alpha, beta, false, color, 'hard');
+
+          boardState[m.fromR][m.fromC] = piece;
+          boardState[m.toR][m.toC] = target;
+
+          if (moveVal > bestVal) {
+            bestVal = moveVal;
+            bestMove = m;
+          }
+          alpha = Math.max(alpha, bestVal);
+        }
+        return bestMove;
+      }
+
+      // 4. Master: Alpha-Beta (Depth 3) + Mobility scoring + Tactical blunder-avoidance
+      if (aiDifficulty === 'master') {
+        let bestVal = -Infinity;
+        let bestMove = legalMoves[0];
+        let alpha = -Infinity;
+        const beta = Infinity;
         const oppColor = color === 'w' ? 'b' : 'w';
-        if (isKingInCheck(oppColor, boardState)) {
-          score += 45;
-        }
-        // Check if opponent can recapture on destination square
-        for (let rr = 0; rr < 8; rr++) {
-          for (let cc = 0; cc < 8; cc++) {
-            const opp = boardState[rr][cc];
-            if (opp && opp.color === oppColor) {
-              const oppMoves = getPseudoMovesForPiece(rr, cc, boardState);
-              if (oppMoves.some((om) => om.r === m.toR && om.c === m.toC)) {
-                score -= PIECE_VALUES[piece.type] * 0.75;
+
+        for (const m of legalMoves) {
+          const piece = boardState[m.fromR][m.fromC];
+          const target = boardState[m.toR][m.toC];
+          boardState[m.toR][m.toC] = piece;
+          boardState[m.fromR][m.fromC] = null;
+
+          let moveVal = minimaxAlphaBeta(boardState, 2, alpha, beta, false, color, 'master');
+
+          const oppReplies = getAllLegalMoves(oppColor, boardState);
+          let isHanging = false;
+          for (const rep of oppReplies) {
+            if (rep.toR === m.toR && rep.toC === m.toC) {
+              const attacker = boardState[rep.fromR][rep.fromC];
+              if (attacker && PIECE_VALUES[attacker.type] <= PIECE_VALUES[piece.type]) {
+                isHanging = true;
                 break;
               }
             }
           }
+          if (isHanging) {
+            moveVal -= PIECE_VALUES[piece.type] * 0.85;
+          }
+
+          const myReplies = getAllLegalMoves(color, boardState);
+          moveVal += (myReplies.length - oppReplies.length) * 2.5;
+
+          boardState[m.fromR][m.fromC] = piece;
+          boardState[m.toR][m.toC] = target;
+
+          if (moveVal > bestVal) {
+            bestVal = moveVal;
+            bestMove = m;
+          }
+          alpha = Math.max(alpha, bestVal);
         }
+        return bestMove;
+      }
+
+      // 5. Grandmaster: Deep heuristic evaluation with opening principles, endgame king activity
+      let bestVal = -Infinity;
+      let bestMove = legalMoves[0];
+      let alpha = -Infinity;
+      const beta = Infinity;
+      const oppColor = color === 'w' ? 'b' : 'w';
+
+      for (const m of legalMoves) {
+        const piece = boardState[m.fromR][m.fromC];
+        const target = boardState[m.toR][m.toC];
+        boardState[m.toR][m.toC] = piece;
+        boardState[m.fromR][m.fromC] = null;
+
+        let moveVal = minimaxAlphaBeta(boardState, 2, alpha, beta, false, color, 'grandmaster');
+
+        if (moveHistory.length < 12) {
+          if (piece.type === 'pawn' && (m.toC === 3 || m.toC === 4)) moveVal += 35;
+          if (piece.type === 'knight' || piece.type === 'bishop') moveVal += 25;
+          if (piece.type === 'queen') moveVal -= 55;
+        }
+
+        const enemyAttacked = [];
+        const pieceMoves = getPseudoMovesForPiece(m.toR, m.toC, boardState);
+        for (const pm of pieceMoves) {
+          const attackedPiece = boardState[pm.r][pm.c];
+          if (attackedPiece && attackedPiece.color === oppColor && PIECE_VALUES[attackedPiece.type] >= 300) {
+            enemyAttacked.push(attackedPiece);
+          }
+        }
+        if (enemyAttacked.length >= 2) {
+          moveVal += 140;
+        }
+
+        const oppReplies = getAllLegalMoves(oppColor, boardState);
+        for (const rep of oppReplies) {
+          if (rep.toR === m.toR && rep.toC === m.toC) {
+            moveVal -= PIECE_VALUES[piece.type] * 0.90;
+            break;
+          }
+        }
+
         boardState[m.fromR][m.fromC] = piece;
         boardState[m.toR][m.toC] = target;
 
-        // Small jitter so AI varies openings
-        score += (Math.random() - 0.5) * 14;
-
-        if (score > bestScore + 1) {
-          bestScore = score;
-          bestCandidates = [m];
-        } else if (Math.abs(score - bestScore) <= 1) {
-          bestCandidates.push(m);
+        if (moveVal > bestVal) {
+          bestVal = moveVal;
+          bestMove = m;
         }
+        alpha = Math.max(alpha, bestVal);
       }
-
-      return bestCandidates[Math.floor(Math.random() * bestCandidates.length)] || legalMoves[0];
+      return bestMove;
     }
 
     function triggerAIMoveNow() {
       if (isAnimatingMove || gameOver) return false;
+      const indicator = document.getElementById('ai-thinking-indicator');
+      if (indicator) indicator.classList.add('hidden');
       const chosen = chooseSmartAIMove(currentTurn);
       if (!chosen) return false;
       return executeChessMove(chosen.fromR, chosen.fromC, chosen.toR, chosen.toC);
@@ -2831,8 +3650,33 @@ export function initWizardChess() {
 
       const aiColor = playerColor === 'w' ? 'b' : 'w';
       if (currentTurn === aiColor) {
+        const indicator = document.getElementById('ai-thinking-indicator');
+        const textEl = document.getElementById('ai-thinking-text');
+
+        let delayMs = 420;
+        if (aiDifficulty === 'easy') {
+          delayMs = 280;
+        } else if (aiDifficulty === 'medium') {
+          delayMs = 450;
+        } else if (aiDifficulty === 'hard') {
+          delayMs = 600;
+        } else if (aiDifficulty === 'master') {
+          delayMs = 750;
+          if (indicator) {
+            if (textEl) textEl.textContent = 'Master is analyzing positions...';
+            indicator.classList.remove('hidden');
+          }
+        } else if (aiDifficulty === 'grandmaster') {
+          delayMs = 950;
+          if (indicator) {
+            if (textEl) textEl.textContent = 'Grandmaster is calculating...';
+            indicator.classList.remove('hidden');
+          }
+        }
+
         aiTimer = setTimeout(() => {
           aiTimer = null;
+          if (indicator) indicator.classList.add('hidden');
           if (
             !scriptedGameActive &&
             gameMode === 'single' &&
@@ -2842,7 +3686,7 @@ export function initWizardChess() {
           ) {
             triggerAIMoveNow();
           }
-        }, 540);
+        }, delayMs);
       }
     }
 
@@ -3414,6 +4258,7 @@ export function initWizardChess() {
         overlay.classList.add('visible');
       }
       checkmateState.bannerVisible = true;
+      soundEngine.playVictory();
     }
 
     function triggerCheckmateSequence(defeatedColor = currentTurn, winnerColor = null) {
@@ -3800,6 +4645,11 @@ export function initWizardChess() {
         if (move) {
           executeChessMove(selectedSquare.r, selectedSquare.c, move.r, move.c);
           return;
+        } else {
+          const otherTarget = boardState[clickedR][clickedC];
+          if (!otherTarget || otherTarget.color !== currentTurn) {
+            soundEngine.playInvalid();
+          }
         }
       }
 
@@ -3808,6 +4658,7 @@ export function initWizardChess() {
         selectedSquare = { r: clickedR, c: clickedC };
         validMoves = getLegalMovesForPiece(clickedR, clickedC);
         showSquareHighlights(clickedR, clickedC, validMoves);
+        soundEngine.playSelect();
       } else {
         clearSquareHighlights();
         selectedSquare = null;
@@ -4935,12 +5786,78 @@ export function initWizardChess() {
       stepScene(dt || 0.016, true);
     }
 
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
+    function handleWindowResize() {
+      const w = window.innerWidth || document.documentElement.clientWidth || 800;
+      const h = window.innerHeight || document.documentElement.clientHeight || 600;
+      if (w <= 0 || h <= 0) return;
+      camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setSize(w, h, false);
+      if (renderer.domElement) {
+        renderer.domElement.style.width = '100vw';
+        renderer.domElement.style.height = '100vh';
+      }
+    }
+
+    window.addEventListener('resize', handleWindowResize);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(handleWindowResize, 100);
+      setTimeout(handleWindowResize, 350);
     });
 
+    // Sound UI Binding
+    function updateAudioUI() {
+      const isMuted = soundEngine.getMuted();
+      const label = isMuted ? '🔇 Sound OFF' : '🔊 Sound ON';
+      const soundBtn = document.getElementById('btn-sound-toggle');
+      if (soundBtn) {
+        soundBtn.textContent = label;
+        if (isMuted) soundBtn.classList.add('muted');
+        else soundBtn.classList.remove('muted');
+      }
+      const mobSoundBtn = document.getElementById('btn-mobile-sound-toggle');
+      if (mobSoundBtn) {
+        mobSoundBtn.textContent = label;
+        if (isMuted) mobSoundBtn.classList.add('muted');
+        else mobSoundBtn.classList.remove('muted');
+      }
+    }
+
+    document.getElementById('btn-sound-toggle')?.addEventListener('click', () => {
+      soundEngine.toggleMute();
+      updateAudioUI();
+    });
+    document.getElementById('btn-mobile-sound-toggle')?.addEventListener('click', () => {
+      soundEngine.toggleMute();
+      updateAudioUI();
+    });
+    updateAudioUI();
+
+    // AI Difficulty Selector UI Binding
+    const diffSelect = document.getElementById('select-ai-difficulty');
+    if (diffSelect) {
+      diffSelect.value = aiDifficulty;
+      diffSelect.addEventListener('change', (e) => {
+        aiDifficulty = e.target.value;
+        try { localStorage.setItem('wizard_chess_ai_difficulty', aiDifficulty); } catch (err) {}
+      });
+    }
+
+    // Expose sound & difficulty controls on window.wizardChess
+    window.wizardChess.sound = soundEngine;
+    window.wizardChess.toggleMute = () => {
+      const m = soundEngine.toggleMute();
+      updateAudioUI();
+      return m;
+    };
+    window.wizardChess.setDifficulty = (level) => {
+      if (['easy', 'medium', 'hard', 'master', 'grandmaster'].includes(level)) {
+        aiDifficulty = level;
+        if (diffSelect) diffSelect.value = level;
+        try { localStorage.setItem('wizard_chess_ai_difficulty', level); } catch (err) {}
+      }
+    };
+    window.wizardChess.getDifficulty = () => aiDifficulty;
 
     // Startup sequence (Standalone Single-Player AI Studio Applet)
     (async () => {
