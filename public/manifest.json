@@ -2,14 +2,27 @@
   "name": "CHANDAN WIZARD CHESS",
   "short_name": "ChandanChess",
   "description": "CHANDAN WIZARD CHESS — devloped by CHANDAN®. Interactive 3D Gothic Cathedral Wizard Chess.",
+  "id": "/?source=pwa",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "orientation": "any",
+  "orientation": "landscape",
   "theme_color": "#080a0f",
   "background_color": "#080a0f",
   "categories": ["games", "entertainment"],
   "icons": [
+    {
+      "src": "./assets/1000143905.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/1000143905.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
     {
       "src": "./assets/icon.svg",
       "sizes": "192x192 512x512",
